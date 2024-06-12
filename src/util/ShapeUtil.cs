@@ -6,6 +6,7 @@ namespace MechGrinder.Util;
 public static class ShapeUtil
 {
 	/// <summary>
+	/// Creates an appropriate mesh depending on the type of Shape2D.
 	/// Only works with RectangleShape2D, ConvexPolygonShape2D, or ConcavePolygonShape2D.
 	/// </summary>
 	public static Mesh Shape2DToMesh(Shape2D shape)

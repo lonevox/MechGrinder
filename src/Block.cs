@@ -131,25 +131,14 @@ public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] 
 public class Block
 {
 	public int BlockTypeId;
-	public Transform2D Transform;
+	public Transform2D Transform = Transform2D.Identity;
 	public float Health;
 	public bool Disabled = true;
 
-	public Block(int blockTypeId, Transform2D transform, float health)
+	public Block(int blockTypeId, World world)
 	{
 		BlockTypeId = blockTypeId;
-		Transform = transform;
-		Health = health;
-	}
-
-	public static Block FromWorldBlockType(int blockTypeId, World world)
-	{
-		return FromWorldBlockType(blockTypeId, world, Transform2D.Identity);
-	}
-
-	public static Block FromWorldBlockType(int blockTypeId, World world, Transform2D transform)
-	{
 		BlockType blockType = world.BlockTypes[blockTypeId];
-		return new Block(blockTypeId, transform, blockType.Health);
+		Health = blockType.Health;
 	}
 }

@@ -95,11 +95,11 @@ public static class PolygonUtil
 	public static Vector2[] TranslatePolygon(Vector2[] polygon, Vector2 translation)
 	{
 		Vector2[] polygonTranslated = new Vector2[polygon.Length];
-		for (int j = 0; j < polygon.Length; j++)
+		for (int i = 0; i < polygon.Length; i++)
 		{
-			Vector2 point = polygon[j];
+			Vector2 point = polygon[i];
 			Vector2 pointTranslated = point + translation;
-			polygonTranslated[j] = pointTranslated;
+			polygonTranslated[i] = pointTranslated;
 		}
 		return polygonTranslated;
 	}

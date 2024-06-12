@@ -88,9 +88,9 @@ public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] 
 			return this;
 		}
 		
-		public BlockTypeBuilder Weak()
+		public BlockTypeBuilder Weak(bool weak = true)
 		{
-			_weak = true;
+			_weak = weak;
 			return this;
 		}
 

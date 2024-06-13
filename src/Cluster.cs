@@ -128,6 +128,8 @@ public partial class Cluster : RigidBody2D
 			for (int i = 0; i < _blocks.Count; i++)
 			{
 				Block block = _blocks[i];
+				if (block.Disabled)
+					continue;
 				BlockType blockType = World.BlockTypes[block.BlockTypeId];
 				for (int j = 0; j < block.Links.Length; j++)
 				{

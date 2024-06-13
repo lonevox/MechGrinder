@@ -148,16 +148,17 @@ public static class PolygonUtil
 		return 0.5f * (a.X * (b.Y - c.Y) + b.X * (c.Y - a.Y) + c.X * (a.Y - b.Y));
 	}
 
+	/// <summary>
+	/// Uses the <a href="https://en.wikipedia.org/wiki/Shoelace_formula">shoelace formula</a> to calculate the area of a polygon.
+	/// </summary>
 	public static float PolygonToArea(Vector2[] polygon)
 	{
-		Vector2[] triangleVertices = PolygonToTriangleVertices(polygon);
+		int n = polygon.Length;
 		float area = 0;
-		for (int i = 0; i < triangleVertices.Length / 3; i++)
-		{
-			int triangleIndex = i * 3;
-			area += TriangleToArea(triangleVertices[triangleIndex], triangleVertices[triangleIndex + 1], triangleVertices[triangleIndex + 2]);
+		for (int i = 0; i < n - 1; i++) {
+			area += polygon[i].X * polygon[i + 1].Y - polygon[i + 1].X * polygon[i].Y;
 		}
-		return area;
+		return Math.Abs(area + polygon[n - 1].X * polygon[0].Y - polygon[0].X * polygon[n - 1].Y) / 2;
 	}
 
 	public static Vector2 PolygonPointAlongSide(Vector2[] polygon, int side, float ratio)

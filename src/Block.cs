@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using MechGrinder.Util;
 
@@ -9,7 +10,9 @@ namespace MechGrinder;
 /// <param name="Name"></param>
 /// <param name="Shape"></param>
 /// <param name="Mesh"></param>
-/// <param name="PortLocations"></param>
+/// <param name="Center"></param>
+/// <param name="PortPositions"></param>
+/// <param name="PortNormals"></param>
 /// <param name="Scale"></param>
 /// <param name="Durability"></param>
 /// <param name="Density"></param>
@@ -17,7 +20,7 @@ namespace MechGrinder;
 /// <param name="Area"></param>
 /// <param name="Health"></param>
 /// <param name="Weak">Weak blocks are destroyed when one of their neighbours is destroyed.</param>
-public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] PortLocations, int Scale, float Durability, float Density, float Mass, float Area, float Health, bool Weak)
+public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] PortPositions, Vector2[] PortNormals, int Scale, float Durability, float Density, float Mass, float Area, float Health, bool Weak)
 {
 	public static BlockTypeBuilder Builder(string name, Shape2D shape)
 	{
@@ -33,7 +36,7 @@ public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] 
 		private float _density;
 		private float _mass;
 		private float _health;
-		private Vector2[]? _portLocations;
+		private Vector2[]? _portPositions;
 		private bool _weak;
 		
 		public BlockTypeBuilder(string name, Shape2D shape)
@@ -42,9 +45,9 @@ public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] 
 			_shape = shape;
 		}
 		
-		public BlockTypeBuilder PortLocations(Vector2[] portLocations)
+		public BlockTypeBuilder PortPositions(Vector2[] portPositions)
 		{
-			_portLocations = portLocations;
+			_portPositions = portPositions;
 			return this;
 		}
 
@@ -96,33 +99,77 @@ public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] 
 
 		public BlockType Build()
 		{
-			Mesh mesh = ShapeUtil.Shape2DToMesh(_shape);
+			// Scale shape
+			Shape2D shape = (Shape2D) _shape.Duplicate();
+			if (_scale != 1)
+				shape = ShapeUtil.ScaleShape(shape, new Vector2(_scale, _scale));
 			
-			if (_portLocations == null)
+			// Make sure shape is centered
+			shape = ShapeUtil.CenterShape2D(shape);
+			
+			// Create mesh from shape
+			Mesh mesh = ShapeUtil.Shape2DToMesh(shape);
+
+			// Port positions
+			Vector2[] shapePolygon = ShapeUtil.Shape2DToPolygon(shape);
+			int portCount = shapePolygon.Length * _scale;
+			Vector2[] portPositions;
+			if (_portPositions == null)
 			{
-				// TODO: Generate port locations from shape
-				_portLocations = Array.Empty<Vector2>();
+				// Calculate port positions based on shape and scale. Ports are evenly spaced. The number of ports on
+				// each side of a block is equal to the scale.
+				portPositions = new Vector2[portCount];
+				for (int i = 0; i < shapePolygon.Length; i++)
+				{
+					for (int j = 0; j < _scale; j++)
+					{
+						float ratio = 1f / _scale * (j + 1) - 1f / _scale / 2;
+						Vector2 portPosition = PolygonUtil.PolygonPointAlongSide(shapePolygon, i, ratio);
+						portPositions[i * _scale + j] = portPosition;
+					}
+				}
+			}
+			else
+			{
+				// Port positions must be cloned because the builder could be used again, in which case we don't want
+				// two block types to share the same _portPositions array reference.
+				portPositions = (Vector2[]) _portPositions.Clone();
 			}
 			
-			float area = ShapeUtil.Shape2DArea(_shape);
+			// Port normals
+			Vector2[] portNormals = new Vector2[portCount];
+			for (int i = 0; i < shapePolygon.Length; i++)
+			{
+				for (int j = 0; j < _scale; j++)
+				{
+					Vector2 portNormal = PolygonUtil.PolygonSideNormal(shapePolygon, i);
+					portNormals[i * _scale + j] = portNormal;
+				}
+			}
+
+			float area = ShapeUtil.Shape2DArea(shape);
 			
 			// If density or mass is missing, then one is used to specify the other. If both are missing, throw.
-			if (_density != 0 && _mass == 0)
-				_mass = _density * area;
-			else if (_density == 0 && _mass != 0)
-				_density = _mass / area;
+			float mass = _mass;
+			float density = _density;
+			if (density != 0 && mass == 0)
+				mass = density * area;
+			else if (density == 0 && mass != 0)
+				density = mass / area;
 			else
 				throw new Exception("Must specify either density or mass in order to build BlockType.");
 			
 			// If durability is specified, overwrite health. Otherwise, health sets durability. If health isn't set either, throw.
-			if (_durability != 0)
-				_health = _durability * area;
-			else if (_health != 0)
-				_durability = _health / area;
+			float health = _health;
+			float durability = _durability;
+			if (durability != 0)
+				health = durability * area;
+			else if (health != 0)
+				durability = health / area;
 			else
 				throw new Exception("Must specify either durability or health in order to build BlockType.");
 			
-			return new BlockType(_name, _shape, mesh, _portLocations, _scale, _durability, _density, _mass, area, _health, _weak);
+			return new BlockType(_name, shape, mesh, portPositions, portNormals, _scale, durability, density, mass, area, health, _weak);
 		}
 	}
 }
@@ -134,11 +181,13 @@ public class Block
 	public Transform2D Transform = Transform2D.Identity;
 	public float Health;
 	public bool Disabled = true;
+	public readonly BlockPortPair?[] Links;
 
 	public Block(int blockTypeId, World world)
 	{
 		BlockTypeId = blockTypeId;
 		BlockType blockType = world.BlockTypes[blockTypeId];
 		Health = blockType.Health;
+		Links = new BlockPortPair[blockType.PortPositions.Length];
 	}
 }

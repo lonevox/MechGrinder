@@ -23,6 +23,8 @@ public partial class Cluster : RigidBody2D
 	/// Empty transform used for hiding mesh instances.
 	/// </summary>
 	private static readonly Transform2D ZeroTransform = new();
+	
+	private bool _debugVisiblePorts = true;
 
 	public ControlMode ControlMode;
 	// public readonly List<int> BlockIds = new List<int>();
@@ -57,11 +59,6 @@ public partial class Cluster : RigidBody2D
 
 	private bool _freezeGraph;
 
-	/// <summary>
-	/// 
-	/// </summary>
-	private int _shapeOffset;
-
 	public Cluster()
 	{
 		ContactMonitor = true;
@@ -70,17 +67,10 @@ public partial class Cluster : RigidBody2D
 		_shapeOwner = CreateShapeOwner(this);
 	}
 
-	/// <summary>
-	/// Construct a Cluster within a World with an initial list of Blocks.
-	/// </summary>
-	public Cluster(World? world, List<Block> blocks) : this()
+	public Cluster(World world, Block initialBlock) : this()
 	{
 		World = world;
-		// Blocks = blocks;
-		for (int i = 0; i < blocks.Count; i++)
-		{
-			AddBlock(blocks[i]);
-		}
+		AddBlock(initialBlock);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -132,6 +122,31 @@ public partial class Cluster : RigidBody2D
 			default:
 				throw new ArgumentException("Enum has an invalid value.", nameof(World.RenderMode));
 		}
+		
+		if (_debugVisiblePorts)
+		{
+			for (int i = 0; i < _blocks.Count; i++)
+			{
+				Block block = _blocks[i];
+				BlockType blockType = World.BlockTypes[block.BlockTypeId];
+				for (int j = 0; j < block.Links.Length; j++)
+				{
+					Transform2D portTransform = block.Transform.TranslatedLocal(blockType.PortPositions[j]);
+					Vector2 portPosition = portTransform.Origin;
+					
+					// Draw normal
+					Vector2 portNormal = blockType.PortNormals[j];
+					Vector2 portNormalEndPosition = portTransform.TranslatedLocal(portNormal * 5).Origin;
+					DrawLine(portPosition, portNormalEndPosition, Colors.Aqua);
+					
+					// Draw port position
+					if (block.Links[j] == null)
+						DrawCircle(portPosition, 1.5f, Colors.Green);
+					else
+						DrawCircle(portPosition, 1.5f, Colors.Red);
+				}
+			}
+		}
 	}
 
 	public override void _Notification(int what)
@@ -146,32 +161,26 @@ public partial class Cluster : RigidBody2D
 	}
 
 	/// <summary>
-	/// Adds a new Block to the cluster.
-	/// The block's BlockTypeID must be an ID that exists in this Cluster's World.
+	/// NOTE: The given Block must already be considered valid before calling this.
 	/// </summary>
-	public void AddBlock(Block block)
+	/// <param name="block"></param>
+	private void AddBlock(Block block)
 	{
 		Debug.Assert(World != null, nameof(World) + " != null");
 		
 		int blockTypeId = block.BlockTypeId;
-		if (blockTypeId > World.BlockTypes.Count)
-		{
-			throw new ArgumentException("The given block's BlockTypeID must be an ID that exists in the cluster's World.");
-		}
+		Debug.Assert(blockTypeId < World.BlockTypes.Count, "Can't add block: The given block's BlockTypeID must be an ID that exists in the cluster's World.");
 		
-		BlockType blockType = World.BlockTypes[blockTypeId];
+		int blockId = _blocks.Count;
+		_blocks.Add(block);
 		
 		// Add a MultiMesh to the cluster if the BlockType hasn't been seen before
+		BlockType blockType = World.BlockTypes[blockTypeId];
 		if (_usedBlockTypes.Add(blockTypeId))
-		{
 			AddMultiMesh(blockTypeId, blockType.Mesh);
-		}
 		// Add the block's mesh
 		ExpandableMultiMesh multiMesh = _expandableMultiMeshes[block.BlockTypeId];
 		multiMesh.InstanceCount += 1;
-		
-		_blocks.Add(block);
-		int blockId = _blocks.Count - 1;
 		_expandableMultiMeshInstances[multiMesh][blockId] = multiMesh.InstanceCount - 1;
 		
 		// Add the block's shape to the cluster
@@ -179,6 +188,53 @@ public partial class Cluster : RigidBody2D
 		PhysicsServer2D.BodySetShapeTransform(_rid, blockId, block.Transform);
 		
 		EnableBlock(blockId);
+	}
+
+	/// <summary>
+	/// Adds a new Block to the cluster.
+	/// The block's BlockTypeID must be an ID that exists in this Cluster's World.
+	/// </summary>
+	public void AddBlock(Block block, int port, int toBlockId, int toPort)
+	{
+		Debug.Assert(World != null, nameof(World) + " != null");
+		
+		int blockTypeId = block.BlockTypeId;
+		if (blockTypeId >= World.BlockTypes.Count)
+			throw new ArgumentException("Can't add block: The given block's BlockTypeID must be an ID that exists in the cluster's World.");
+		
+		if (_blocks.Count <= toBlockId)
+			throw new ArgumentOutOfRangeException(nameof(toBlockId), "Can't add block: There is no block in the cluster with a block ID of " + toBlockId + ".");
+		Block toBlock = _blocks[toBlockId];
+		
+		// Throw if block can't connect to given port
+		if (toBlock.Links.Length <= toPort)
+			throw new ArgumentOutOfRangeException(nameof(toPort), "Can't add block: Block with ID '" + toBlockId + "' doesn't have port '" + toPort + "'.");
+		if (toBlock.Links[toPort] != null)
+			throw new Exception("Can't add block: Port '" + toPort + "' of Block with ID '" + toBlockId + "' is in use.");
+		
+		// Link blocks
+		block.Links[port] = new BlockPortPair(toBlockId, toPort);
+		toBlock.Links[toPort] = new BlockPortPair(_blocks.Count, port);
+
+		// Transform block based on ports
+		BlockType blockType = World.BlockTypes[blockTypeId];
+		BlockType toBlockType = World.BlockTypes[toBlock.BlockTypeId];
+		Vector2 blockPortPosition = blockType.PortPositions[port];
+		Vector2 toBlockPortPosition = toBlockType.PortPositions[toPort];
+		Vector2 blockPosition = toBlockPortPosition - blockPortPosition;
+		Vector2 blockPortNormal = blockType.PortNormals[port];
+		Vector2 toBlockPortNormal = toBlockType.PortNormals[toPort];
+		float blockRotation = toBlockPortNormal.AngleTo(blockPortNormal) % Mathf.Pi;
+		// TODO: This could almost certainly be done with less transforms. This is just the first thing that worked.
+		block.Transform = Transform2D.Identity
+			.Translated(blockPosition)
+			.Translated(-toBlockPortPosition)
+			.Rotated(blockRotation)
+			.Translated(toBlockPortPosition)
+			.TranslatedLocal(toBlock.Transform.Origin)
+			.Rotated(toBlock.Transform.Rotation);
+		
+		AddBlock(block);
 	}
 
 	private void AddMultiMesh(int blockTypeId, Mesh mesh)

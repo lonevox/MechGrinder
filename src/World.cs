@@ -23,27 +23,28 @@ public partial class World : Node2D
 	{
 		base._Ready();
 		GD.Print("creating world");
-		RectangleShape2D smallRectangle = new RectangleShape2D();
-		smallRectangle.Size = new Vector2(5, 5);
-		AddBlockType(BlockType.Builder("Command", smallRectangle).Density(1).Durability(1).Build());
-		Vector2[] smallTrianglePolygon = { Vector2.Zero, new(5, 0), new(5, 5) };
-		AddBlockType(BlockType.Builder("Small TriHull", new ConvexPolygonShape2D { Points = smallTrianglePolygon }).Density(1).Durability(1).Build());
-		Vector2[] mediumTrianglePolygon = { Vector2.Zero, new(20, 0), new(20, 20) };
-		AddBlockType(BlockType.Builder("Medium TriHull", new ConvexPolygonShape2D { Points = mediumTrianglePolygon }).Density(1).Durability(1).Build());
+		RectangleShape2D rectangleShape = new RectangleShape2D();
+		rectangleShape.Size = new Vector2(10, 10);
+		BlockType.BlockTypeBuilder commandBlockTypeBuilder = BlockType.Builder("Command", rectangleShape)
+			.Density(1)
+			.Durability(1);
+		AddBlockType(commandBlockTypeBuilder.Build());
+		AddBlockType(commandBlockTypeBuilder.Scale(2).Build());
+		AddBlockType(commandBlockTypeBuilder.Scale(3).Build());
+		Vector2[] trianglePolygon = { Vector2.Zero, new(10, 0), new(10, 10) };
+		BlockType.BlockTypeBuilder triHullBlockTypeBuilder = BlockType.Builder("TriHull", new ConvexPolygonShape2D { Points = trianglePolygon })
+			.Density(1)
+			.Durability(1);
+		AddBlockType(triHullBlockTypeBuilder.Build());
+		AddBlockType(triHullBlockTypeBuilder.Scale(2).Build());
+		AddBlockType(triHullBlockTypeBuilder.Scale(3).Build());
 		AddBlockType(BlockType.Builder("Diamond", new ConvexPolygonShape2D { Points = PolygonUtil.RegularConvexPolygon(4, 2.5f) }).Density(1).Durability(1).Build());
 
-		Cluster cluster = new Cluster();
+		Cluster cluster = new Cluster(this, new Block(0, this));
 		AddCluster(cluster);
 		cluster.ControlMode = ControlMode.Player;
-		float rotation = 0;
-		for (int i = 0; i < 150; i++)
-		{
-			for (int j = 0; j < 100; j++)
-			{
-				rotation += 0.1f;
-				cluster.AddBlock(Block.FromWorldBlockType(0, this, new Transform2D(rotation, new Vector2(i * 5, j * 5))));
-			}
-		}
+		cluster.AddBlock(new Block(4, this), 2, 0, 2);
+		cluster.AddBlock(new Block(5, this), 3, 1, 1);
 	}
 
 	public void AddBlockType(BlockType blockType)

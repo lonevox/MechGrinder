@@ -26,6 +26,128 @@ public static class ShapeUtil
 					"'. The only valid types are 'RectangleShape2D', 'ConvexPolygonShape2D', and 'ConcavePolygonShape2D'.");
 		}
 	}
+	
+	/// <summary>
+	/// Only works with RectangleShape2D, ConvexPolygonShape2D, or ConcavePolygonShape2D.
+	/// </summary>
+	public static Vector2[] Shape2DToPolygon(Shape2D shape)
+	{
+		switch (shape.GetClass())
+		{
+			case "RectangleShape2D":
+				RectangleShape2D rectangleShape = (shape as RectangleShape2D)!;
+				return PolygonUtil.RectanglePolygon(rectangleShape.Size);
+			case "ConvexPolygonShape2D":
+				ConvexPolygonShape2D convexShape = (shape as ConvexPolygonShape2D)!;
+				return convexShape.Points;
+			case "ConcavePolygonShape2D":
+				ConcavePolygonShape2D concaveShape = (shape as ConcavePolygonShape2D)!;
+				return PolygonUtil.PolygonSegmentsToPoints(concaveShape.Segments);
+			default:
+				throw new ArgumentException("Invalid Shape2D type: The given shape is of type '" + shape.GetClass() +
+				                            "'. The only valid types are 'RectangleShape2D', 'ConvexPolygonShape2D', and 'ConcavePolygonShape2D'.");
+		}
+	}
+	
+	/// <summary>
+	/// Only works with RectangleShape2D, ConvexPolygonShape2D, or ConcavePolygonShape2D.
+	/// </summary>
+	public static Shape2D ScaleShape(Shape2D shape, Vector2 scale)
+	{
+		switch (shape.GetClass())
+		{
+			case "RectangleShape2D":
+				return ScaleRectangleShape2D((shape as RectangleShape2D)!, scale);
+			case "ConvexPolygonShape2D":
+				return ScaleConvexPolygonShape2D((shape as ConvexPolygonShape2D)!, scale);
+			case "ConcavePolygonShape2D":
+				return ScaleConcavePolygonShape2D((shape as ConcavePolygonShape2D)!, scale);
+			default:
+				throw new ArgumentException("Invalid Shape2D type: The given shape is of type '" + shape.GetClass() +
+				                            "'. The only valid types are 'RectangleShape2D', 'ConvexPolygonShape2D', and 'ConcavePolygonShape2D'.");
+		}
+	}
+	
+	/// <summary>
+	/// Scales the given RectangleShape2D.
+	/// </summary>
+	public static RectangleShape2D ScaleRectangleShape2D(RectangleShape2D shape, Vector2 scale)
+	{
+		shape.Size *= scale;
+		return shape;
+	}
+	
+	/// <summary>
+	/// Scales the given ConvexPolygonShape2D.
+	/// </summary>
+	public static ConvexPolygonShape2D ScaleConvexPolygonShape2D(ConvexPolygonShape2D shape, Vector2 scale)
+	{
+		shape.Points = PolygonUtil.TransformPolygon(shape.Points, Transform2D.Identity.Scaled(scale));
+		return shape;
+	}
+	
+	/// <summary>
+	/// Scales the given ConcavePolygonShape2D.
+	/// </summary>
+	public static ConcavePolygonShape2D ScaleConcavePolygonShape2D(ConcavePolygonShape2D shape, Vector2 scale)
+	{
+		Vector2[] polygon = PolygonUtil.PolygonSegmentsToPoints(shape.Segments);
+		Vector2[] scaledPolygon = PolygonUtil.TransformPolygon(polygon, Transform2D.Identity.Scaled(scale));
+		shape.Segments = PolygonUtil.PolygonPointsToSegments(scaledPolygon);
+		return shape;
+	}
+	
+	/// <summary>
+	/// Transforms the given Shape2D to its center. If you know your shape is a ConvexPolygonShape2D or ConcavePolygonShape2D,
+	/// prefer calling CenterPolygonShape2D.
+	/// Doesn't work with shapes with no center, i.e. SegmentShape2D, SeparationRayShape2D, or WorldBoundaryShape2D.
+	/// Note that RectangleShape2D, CircleShape2D, and CapsuleShape2D are already centered, so this function simply
+	/// returns those shapes unchanged.
+	/// </summary>
+	public static Shape2D CenterShape2D(Shape2D shape)
+	{
+		switch (shape.GetClass())
+		{
+			// These shapes are already centered
+			case "RectangleShape2D":
+			case "CircleShape2D":
+			case "CapsuleShape2D":
+				return shape;
+			// Polygon shapes need to be centered
+			case "ConvexPolygonShape2D":
+			case "ConcavePolygonShape2D":
+				return CenterPolygonShape2D(shape);
+			default:
+				throw new ArgumentException("Invalid Shape2D type: The given shape is of type '" + shape.GetClass() + "'.");
+		}
+	}
+
+	public static Shape2D CenterPolygonShape2D(Shape2D polygonShape)
+	{
+		switch (polygonShape.GetClass())
+		{
+			case "ConvexPolygonShape2D":
+				ConvexPolygonShape2D convexShape = (polygonShape as ConvexPolygonShape2D)!;
+				convexShape.Points = CenterAndTranslatePolygonShape(polygonShape);
+				return convexShape;
+			case "ConcavePolygonShape2D":
+				ConcavePolygonShape2D concaveShape = (polygonShape as ConcavePolygonShape2D)!;
+				Vector2[] concaveShapeVertices = CenterAndTranslatePolygonShape(polygonShape);
+				concaveShape.Segments = PolygonUtil.PolygonPointsToSegments(concaveShapeVertices);
+				return concaveShape;
+			default:
+				throw new ArgumentException("Invalid Shape2D type: The given shape is of type '" + polygonShape.GetClass() +
+				                            "'. The only valid types are 'ConvexPolygonShape2D', and 'ConcavePolygonShape2D'.");
+		}
+
+		Vector2[] CenterAndTranslatePolygonShape(Shape2D shape)
+		{
+			Vector2[] polygon = Shape2DToPolygon(shape);
+			Vector2 polygonCenter = PolygonUtil.PolygonCenter(polygon);
+			Vector2[] polygonTranslated = PolygonUtil.TranslatePolygon(polygon, -polygonCenter);
+			return polygonTranslated;
+		}
+	}
 
 	public static Mesh CircleShape2DToMesh(CircleShape2D shape, int radialSegments)
 	{

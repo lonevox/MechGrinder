@@ -13,6 +13,19 @@ public static class PolygonUtil
 		return points;
 	}
 
+	public static Vector2[] PolygonPointsToSegments(Vector2[] points)
+	{
+		Vector2[] segments = new Vector2[points.Length * 2];
+		for (int i = 0; i < segments.Length; i++)
+		{
+			if (i % 2 == 0) // Is even
+				segments[i] = points[i / 2];
+			else
+				segments[i] = points[i - 1];
+		}
+		return segments;
+	}
+
 	public static Vector2[] PolygonToTriangleVertices(Vector2[] polygon)
 	{
 		int[] triangleIndices = Geometry2D.TriangulatePolygon(polygon);
@@ -65,6 +78,14 @@ public static class PolygonUtil
 		return polygon;
 	}
 
+	public static Vector2[] RectanglePolygon(Vector2 size)
+	{
+		float halfX = size.X / 2;
+		float halfY = size.Y / 2;
+		Vector2[] polygon = { new(-halfX, -halfY), new(halfX, -halfY), new(halfX, halfY), new(-halfX, halfY) };
+		return polygon;
+	}
+
 	public static int[] ConvexPolygonTriangleStripIndices(Vector2[] polygon)
 	{
 		int[] triangleStripIndices = new int[polygon.Length];
@@ -90,6 +111,18 @@ public static class PolygonUtil
 		for (int i = 0; i < vertices.Length; i++)
 			vertices[i] = polygon[indices[i]];
 		return vertices;
+	}
+	
+	public static Vector2[] TransformPolygon(Vector2[] polygon, Transform2D transform)
+	{
+		Vector2[] transformedPolygon = new Vector2[polygon.Length];
+		for (int i = 0; i < polygon.Length; i++)
+		{
+			Vector2 transformedPoint = transform.BasisXform(polygon[i]);
+			transformedPoint += transform.Origin;
+			transformedPolygon[i] = transformedPoint;
+		}
+		return transformedPolygon;
 	}
 
 	public static Vector2[] TranslatePolygon(Vector2[] polygon, Vector2 translation)
@@ -124,5 +157,43 @@ public static class PolygonUtil
 			area += TriangleToArea(triangleVertices[i], triangleVertices[i + 1], triangleVertices[i + 2]);
 		}
 		return area;
+	}
+
+	public static Vector2 PolygonPointAlongSide(Vector2[] polygon, int side, float ratio)
+	{
+		Vector2 sideStartPosition = polygon[side];
+		Vector2 sideEndPosition = polygon[(side + 1) % polygon.Length];
+		Vector2 point = sideStartPosition.Lerp(sideEndPosition, ratio);
+		return point;
+	}
+	
+	public static float PolygonSideLength(Vector2[] polygon, int side)
+	{
+		Vector2 sideStartPosition = polygon[side];
+		Vector2 sideEndPosition = polygon[(side + 1) % polygon.Length];
+		float sideLength = sideStartPosition.DistanceTo(sideEndPosition);
+		return sideLength;
+	}
+	
+	public static Vector2 PolygonSideNormal(Vector2[] polygon, int side)
+	{
+		Vector2 sideStartPosition = polygon[side];
+		Vector2 sideEndPosition = polygon[(side + 1) % polygon.Length];
+		Vector2 sideVector = sideStartPosition - sideEndPosition;
+		Vector2 normal = sideVector.Rotated(Mathf.Pi / 2).Normalized();
+		return normal;
+	}
+
+	/// <summary>
+	/// The average location of all vertices in the polygon. For convex polygons this will always be within the polygon,
+	/// but for concave polygons the center may be outside.
+	/// </summary>
+	public static Vector2 PolygonCenter(Vector2[] polygon)
+	{
+		Vector2 summedPoints = Vector2.Zero;
+		for (int i = 0; i < polygon.Length; i++)
+			summedPoints += polygon[i];
+		Vector2 center = summedPoints / polygon.Length;
+		return center;
 	}
 }

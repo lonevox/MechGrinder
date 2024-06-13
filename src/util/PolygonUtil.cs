@@ -197,4 +197,33 @@ public static class PolygonUtil
 		Vector2 center = summedPoints / polygon.Length;
 		return center;
 	}
+	
+	public static Vector2 PolygonCentroid(Vector2[] polygon)
+	{
+		Vector2 centroid = Vector2.Zero;
+		float signedArea = 0;
+
+		int lastIndex = polygon.Length - 1;
+		Vector2 prev = polygon[lastIndex];
+		
+		for (int i = 0; i < polygon.Length; ++i)
+		{
+			Vector2 next = polygon[i];
+			float x0 = prev.X; // Current vertex X
+			float y0 = prev.Y; // Current vertex Y
+			float x1 = next.X; // Next vertex X
+			float y1 = next.Y; // Next vertex Y
+			float a = x0 * y1 - x1 * y0;  // Partial signed area
+			signedArea += a;
+			centroid.X += (x0 + x1) * a;
+			centroid.Y += (y0 + y1) * a;
+			prev = next;
+		}
+
+		signedArea *= 0.5f;
+		centroid.X /= (6 * signedArea);
+		centroid.Y /= (6 * signedArea);
+
+		return centroid;
+	}
 }

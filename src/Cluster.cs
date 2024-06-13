@@ -25,6 +25,7 @@ public partial class Cluster : RigidBody2D
 	private static readonly Transform2D ZeroTransform = new();
 	
 	private bool _debugVisiblePorts = true;
+	private bool _debugCenterOfMass = true;
 
 	public ControlMode ControlMode;
 	// public readonly List<int> BlockIds = new List<int>();
@@ -63,6 +64,7 @@ public partial class Cluster : RigidBody2D
 	{
 		ContactMonitor = true;
 		MaxContactsReported = 8;
+		CenterOfMassMode = CenterOfMassModeEnum.Custom;
 		_rid = GetRid();
 		_shapeOwner = CreateShapeOwner(this);
 	}
@@ -149,6 +151,9 @@ public partial class Cluster : RigidBody2D
 				}
 			}
 		}
+
+		if (_debugCenterOfMass)
+			DrawCircle(CenterOfMass, 2, Colors.Black);
 	}
 
 	public override void _Notification(int what)
@@ -257,6 +262,8 @@ public partial class Cluster : RigidBody2D
 		// Enable collision shape
 		PhysicsServer2D.BodySetShapeDisabled(_rid, blockId, false);
 		
+		UpdateCenterOfMass();
+		
 		// Show multi mesh instance
 		ExpandableMultiMesh multiMesh = _expandableMultiMeshes[block.BlockTypeId];
 		int multiMeshInstance = _expandableMultiMeshInstances[multiMesh][blockId];
@@ -274,6 +281,8 @@ public partial class Cluster : RigidBody2D
 		// Disable collision shape
 		CallDeferred(MethodName.ShapeSetDisabled, blockId, true);
 		
+		UpdateCenterOfMass();
+		
 		// Hide multi mesh instance
 		ExpandableMultiMesh multiMesh = _expandableMultiMeshes[block.BlockTypeId];
 		int multiMeshInstance = _expandableMultiMeshInstances[multiMesh][blockId];
@@ -284,6 +293,29 @@ public partial class Cluster : RigidBody2D
 	private void ShapeSetDisabled(int shapeIdx, bool disabled)
 	{
 		PhysicsServer2D.BodySetShapeDisabled(_rid, shapeIdx, disabled);
+	}
+
+	private void UpdateCenterOfMass()
+	{
+		Debug.Assert(World != null, nameof(World) + " != null");
+		
+		Vector2 centerOfMass = Vector2.Zero;
+		float totalMass = 0;
+		for (int i = 0; i < _blocks.Count; i++)
+		{
+			Block block = _blocks[i];
+			if (block.Disabled)
+				continue;
+			
+			BlockType blockType = World.BlockTypes[block.BlockTypeId];
+			Vector2 blockCenterOfMass = block.Transform.Origin + blockType.CenterOfMass;
+			centerOfMass += blockCenterOfMass * blockType.Mass;
+			totalMass += blockType.Mass;
+		}
+		if (centerOfMass != Vector2.Zero)
+			centerOfMass /= totalMass;
+		
+		CenterOfMass = centerOfMass;
 	}
 }
 

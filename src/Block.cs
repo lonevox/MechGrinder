@@ -20,7 +20,7 @@ namespace MechGrinder;
 /// <param name="Area"></param>
 /// <param name="Health"></param>
 /// <param name="Weak">Weak blocks are destroyed when one of their neighbours is destroyed.</param>
-public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] PortPositions, Vector2[] PortNormals, int Scale, float Durability, float Density, float Mass, float Area, float Health, bool Weak)
+public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] PortPositions, Vector2[] PortNormals, int Scale, float Durability, float Density, float Mass, float Area, Vector2 CenterOfMass, float Health, bool Weak)
 {
 	public static BlockTypeBuilder Builder(string name, Shape2D shape)
 	{
@@ -148,6 +148,7 @@ public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] 
 			}
 
 			float area = ShapeUtil.Shape2DArea(shape);
+			Vector2 centerOfMass = PolygonUtil.PolygonCentroid(shapePolygon);
 			
 			// If density or mass is missing, then one is used to specify the other. If both are missing, throw.
 			float mass = _mass;
@@ -169,7 +170,7 @@ public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] 
 			else
 				throw new Exception("Must specify either durability or health in order to build BlockType.");
 			
-			return new BlockType(_name, shape, mesh, portPositions, portNormals, _scale, durability, density, mass, area, health, _weak);
+			return new BlockType(_name, shape, mesh, portPositions, portNormals, _scale, durability, density, mass, area, centerOfMass, health, _weak);
 		}
 	}
 }

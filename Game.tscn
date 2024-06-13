@@ -19,5 +19,3 @@ shape = SubResource("RectangleShape2D_1n6s7")
 [node name="World" type="Node2D" parent="."]
 position = Vector2(-23, -50)
 script = ExtResource("2_a4nwr")
-
-[node name="Camera2D" type="Camera2D" parent="."]

@@ -154,7 +154,8 @@ public static class PolygonUtil
 		float area = 0;
 		for (int i = 0; i < triangleVertices.Length / 3; i++)
 		{
-			area += TriangleToArea(triangleVertices[i], triangleVertices[i + 1], triangleVertices[i + 2]);
+			int triangleIndex = i * 3;
+			area += TriangleToArea(triangleVertices[triangleIndex], triangleVertices[triangleIndex + 1], triangleVertices[triangleIndex + 2]);
 		}
 		return area;
 	}

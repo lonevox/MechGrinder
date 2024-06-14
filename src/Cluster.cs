@@ -26,15 +26,8 @@ public partial class Cluster : RigidBody2D
 	
 	private bool _debugVisiblePorts = true;
 	private bool _debugCenterOfMass = true;
-
-	/// <summary>
-	/// The Block ID of the core block on this cluster. Only valid if <see cref="HasCoreBlock"/> is true.
-	/// </summary>
-	private int _coreBlock;
-	public bool HasCoreBlock;
-	public ControlMode ControlMode;
 	
-	private readonly List<Block> _blocks = new();
+	protected readonly List<Block> Blocks = new();
 	/// <summary>
 	/// These are IDs that were in use by blocks, but those blocks have since been removed with <see cref="RemoveBlock"/>.
 	/// When adding a new block with <see cref="AddBlock"/>, these IDs are preferred to adding a new block ID.
@@ -85,29 +78,6 @@ public partial class Cluster : RigidBody2D
 		BlockSetup(initialBlock, 0);
 	}
 
-	public override void _PhysicsProcess(double delta)
-	{
-		base._PhysicsProcess(delta);
-		if (HasCoreBlock && ControlMode == ControlMode.Player)
-		{
-			Vector2 inputDirection = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
-			ApplyCentralForce(inputDirection * 500);
-		}
-	}
-
-	public override void _IntegrateForces(PhysicsDirectBodyState2D state)
-	{
-		base._IntegrateForces(state);
-		for (int i = 0; i < state.GetContactCount(); i++)
-		{
-			int blockId = state.GetContactLocalShape(i);
-			Block block = _blocks[blockId];
-			block.Health -= 1;
-			if (block.Health <= 0)
-				DestroyBlock(blockId);
-		}
-	}
-
 	public override void _Draw()
 	{
 		base._Draw();
@@ -123,10 +93,10 @@ public partial class Cluster : RigidBody2D
 				}
 				break;
 			case RenderMode.Canvas:
-				for (int i = 0; i < _blocks.Count; i++)
+				for (int i = 0; i < Blocks.Count; i++)
 				{
 					Shape2D shape = ShapeOwnerGetShape(_shapeOwner, i);
-					Transform2D blockTransform = _blocks[i].Transform;
+					Transform2D blockTransform = Blocks[i].Transform;
 					ShapeUtil.DrawShape(canvasItem, shape, new Color(1, 0, 0), blockTransform.Origin);
 				}
 				break;
@@ -136,9 +106,9 @@ public partial class Cluster : RigidBody2D
 		
 		if (_debugVisiblePorts)
 		{
-			for (int i = 0; i < _blocks.Count; i++)
+			for (int i = 0; i < Blocks.Count; i++)
 			{
-				Block block = _blocks[i];
+				Block block = Blocks[i];
 				if (block.Disabled)
 					continue;
 				BlockType blockType = World.BlockTypes[block.BlockTypeId];
@@ -189,14 +159,14 @@ public partial class Cluster : RigidBody2D
 		int blockTypeId = block.BlockTypeId;
 		BlockType blockType = World.BlockTypes[blockTypeId];
 
-		if (blockId == _blocks.Count)
+		if (blockId == Blocks.Count)
 		{
-			_blocks.Add(block);
+			Blocks.Add(block);
 			ShapeOwnerAddShape(_shapeOwner, blockType.Shape);
 		}
 		else
 		{
-			_blocks[blockId] = block;
+			Blocks[blockId] = block;
 			PhysicsServer2D.BodySetShape(_rid, blockId, blockType.Shape.GetRid());
 		}
 		PhysicsServer2D.BodySetShapeTransform(_rid, blockId, block.Transform);
@@ -210,12 +180,6 @@ public partial class Cluster : RigidBody2D
 		multiMesh.InstanceCount += 1;
 		_expandableMultiMeshInstances[multiMesh][blockId] = multiMesh.InstanceCount - 1;
 		
-		if (blockType.Features.HasFlag(BlockFeatures.Core))
-		{
-			_coreBlock = blockId;
-			HasCoreBlock = true;
-		}
-		
 		EnableBlock(blockId);
 	}
 
@@ -223,16 +187,16 @@ public partial class Cluster : RigidBody2D
 	/// Adds a new Block to the cluster.
 	/// The block's BlockTypeID must be an ID that exists in this Cluster's World.
 	/// </summary>
-	public void AddBlock(Block block, int port, int toBlockId, int toPort)
+	public virtual int AddBlock(Block block, int port, int toBlockId, int toPort)
 	{
 		Debug.Assert(World != null, nameof(World) + " != null");
 		
 		if (block.BlockTypeId >= World.BlockTypes.Count)
 			throw new ArgumentException("Can't add block: The given block's BlockTypeID must be an ID that exists in the cluster's World.");
 		
-		if (_blocks.Count <= toBlockId)
+		if (Blocks.Count <= toBlockId)
 			throw new ArgumentOutOfRangeException(nameof(toBlockId), "Can't add block: There is no block in the cluster with a block ID of " + toBlockId + ".");
-		Block toBlock = _blocks[toBlockId];
+		Block toBlock = Blocks[toBlockId];
 		
 		// Throw if block can't connect to given port
 		if (toBlock.Links.Length <= toPort)
@@ -240,18 +204,15 @@ public partial class Cluster : RigidBody2D
 		if (toBlock.Links[toPort] != null)
 			throw new Exception("Can't add block: Port '" + toPort + "' of Block with ID '" + toBlockId + "' is in use.");
 		
-		BlockType blockType = World.BlockTypes[block.BlockTypeId];
-		if (blockType.Features.HasFlag(BlockFeatures.Core) && HasCoreBlock)
-			throw new Exception("Can't add block: Core block already exists on this cluster.");
-		
 		// Figure out the block's ID
-		int blockId = _freeBlockIds.Count > 0 ? _freeBlockIds.Pop() : _blocks.Count;
+		int blockId = _freeBlockIds.Count > 0 ? _freeBlockIds.Pop() : Blocks.Count;
 		
 		// Link blocks
 		block.Links[port] = new BlockPortPair(toBlockId, toPort);
 		toBlock.Links[toPort] = new BlockPortPair(blockId, port);
 
 		// Transform block based on ports
+		BlockType blockType = World.BlockTypes[block.BlockTypeId];
 		BlockType toBlockType = World.BlockTypes[toBlock.BlockTypeId];
 		Vector2 blockPortPosition = blockType.PortPositions[port];
 		Vector2 toBlockPortPosition = toBlockType.PortPositions[toPort];
@@ -264,19 +225,18 @@ public partial class Cluster : RigidBody2D
 			.TranslatedLocal(-blockPortPosition);
 		
 		BlockSetup(block, blockId);
+		return blockId;
 	}
 
-	public void RemoveBlock(int blockId)
+	public virtual void RemoveBlock(int blockId)
 	{
 		Debug.Assert(World != null, nameof(World) + " != null");
 		
-		Block block = _blocks[blockId];
-		int blockTypeId = block.BlockTypeId;
-		BlockType blockType = World.BlockTypes[blockTypeId];
-
 		BlockCleanup(blockId);
 		
 		// Remove MultiMesh if it is no longer in use
+		Block block = Blocks[blockId];
+		int blockTypeId = block.BlockTypeId;
 		_usedBlockTypeCounts[blockTypeId] -= 1;
 		if (_usedBlockTypeCounts[blockTypeId] == 0)
 			RemoveMultiMesh(blockTypeId);
@@ -287,14 +247,11 @@ public partial class Cluster : RigidBody2D
 			BlockPortPair? portPair = block.Links[i];
 			if (portPair != null)
 			{
-				Block toBlock = _blocks[portPair.BlockId];
+				Block toBlock = Blocks[portPair.BlockId];
 				toBlock.Links[portPair.Port] = null;
 			}
 			block.Links[i] = null;
 		}
-		
-		if (blockType.Features.HasFlag(BlockFeatures.Core))
-			HasCoreBlock = false;
 		
 		_freeBlockIds.Push(blockId);
 	}
@@ -316,7 +273,7 @@ public partial class Cluster : RigidBody2D
 	
 	public void EnableBlock(int blockId)
 	{
-		Block block = _blocks[blockId];
+		Block block = Blocks[blockId];
 		if (!block.Disabled)
 			return;
 		block.Disabled = false;
@@ -331,7 +288,7 @@ public partial class Cluster : RigidBody2D
 
 	public void DisableBlock(int blockId)
 	{
-		Block block = _blocks[blockId];
+		Block block = Blocks[blockId];
 		if (block.Disabled)
 			return;
 		
@@ -340,37 +297,17 @@ public partial class Cluster : RigidBody2D
 
 	private void BlockCleanup(int blockId)
 	{
-		Block block = _blocks[blockId];
+		Block block = Blocks[blockId];
 		block.Disabled = true;
 		UpdateCenterOfMass();
 		CallDeferred(MethodName.SetShapeDisabled, blockId, true);
 		SetBlockVisibility(blockId, false);
 	}
 
-	public void DestroyBlock(int blockId)
-	{
-		Debug.Assert(World != null, nameof(World) + " != null");
-		
-		DisableBlock(blockId);
-		
-		// Disable all neighboring weak blocks
-		Block block = _blocks[blockId];
-		for (int i = 0; i < block.Links.Length; i++)
-		{
-			BlockPortPair? portPair = block.Links[i];
-			if (portPair == null)
-				continue;
-			Block connectedBlock = _blocks[portPair.BlockId];
-			BlockType connectedBlockType = World.BlockTypes[connectedBlock.BlockTypeId];
-			if (connectedBlockType.Features.HasFlag(BlockFeatures.Weak))
-				DisableBlock(portPair.BlockId);
-		}
-	}
-
 	private void SetBlockVisibility(int blockId, bool visible)
 	{
 		
-		Block block = _blocks[blockId];
+		Block block = Blocks[blockId];
 		ExpandableMultiMesh multiMesh = _expandableMultiMeshes[block.BlockTypeId];
 		int multiMeshInstance = _expandableMultiMeshInstances[multiMesh][blockId];
 		RenderingServer.MultimeshInstanceSetTransform2D(multiMesh.MultiMeshRid, multiMeshInstance,
@@ -389,9 +326,9 @@ public partial class Cluster : RigidBody2D
 		
 		Vector2 centerOfMass = Vector2.Zero;
 		float totalMass = 0;
-		for (int i = 0; i < _blocks.Count; i++)
+		for (int i = 0; i < Blocks.Count; i++)
 		{
-			Block block = _blocks[i];
+			Block block = Blocks[i];
 			if (block.Disabled)
 				continue;
 			
@@ -405,11 +342,4 @@ public partial class Cluster : RigidBody2D
 		
 		CenterOfMass = centerOfMass;
 	}
-}
-
-public enum ControlMode
-{
-	None,
-	Player,
-	Ai,
 }

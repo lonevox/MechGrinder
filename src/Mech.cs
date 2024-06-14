@@ -1,0 +1,105 @@
+using System;
+using System.Diagnostics;
+using Godot;
+
+namespace MechGrinder;
+
+public partial class Mech : Cluster
+{
+    /// <summary>
+    /// The Block ID of the core block on this mech. Only valid if <see cref="HasCoreBlock"/> is true.
+    /// </summary>
+    private int _coreBlock;
+    public bool HasCoreBlock;
+    public ControlMode ControlMode;
+    
+    public Mech(World world, Block initialBlock) : base(world, initialBlock)
+    {
+        Debug.Assert(World != null, nameof(World) + " != null");
+        
+        BlockType initialBlockType = World.BlockTypes[initialBlock.BlockTypeId];
+        if (!initialBlockType.Features.HasFlag(BlockFeatures.Core))
+            throw new Exception("Can't make Mech: Initial block must have Core feature.");
+    }
+    
+    public override void _PhysicsProcess(double delta)
+    {
+        base._PhysicsProcess(delta);
+        if (HasCoreBlock && ControlMode == ControlMode.Player)
+        {
+            Vector2 inputDirection = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
+            ApplyCentralForce(inputDirection * 500);
+        }
+    }
+    
+    public override void _IntegrateForces(PhysicsDirectBodyState2D state)
+    {
+        base._IntegrateForces(state);
+        for (int i = 0; i < state.GetContactCount(); i++)
+        {
+            int blockId = state.GetContactLocalShape(i);
+            Block block = Blocks[blockId];
+            block.Health -= 1;
+            if (block.Health <= 0)
+                DestroyBlock(blockId);
+        }
+    }
+    
+    public void DestroyBlock(int blockId)
+    {
+        Debug.Assert(World != null, nameof(World) + " != null");
+		
+        DisableBlock(blockId);
+		
+        // Disable all neighboring weak blocks
+        Block block = Blocks[blockId];
+        for (int i = 0; i < block.Links.Length; i++)
+        {
+            BlockPortPair? portPair = block.Links[i];
+            if (portPair == null)
+                continue;
+            Block connectedBlock = Blocks[portPair.BlockId];
+            BlockType connectedBlockType = World.BlockTypes[connectedBlock.BlockTypeId];
+            if (connectedBlockType.Features.HasFlag(BlockFeatures.Weak))
+                DisableBlock(portPair.BlockId);
+        }
+    }
+
+    public override int AddBlock(Block block, int port, int toBlockId, int toPort)
+    {
+        Debug.Assert(World != null, nameof(World) + " != null");
+        
+        BlockType blockType = World.BlockTypes[block.BlockTypeId];
+        if (blockType.Features.HasFlag(BlockFeatures.Core) && HasCoreBlock)
+            throw new Exception("Can't add block: Core block already exists on this mech.");
+        
+        int blockId = base.AddBlock(block, port, toBlockId, toPort);
+        
+        if (blockType.Features.HasFlag(BlockFeatures.Core))
+        {
+            _coreBlock = blockId;
+            HasCoreBlock = true;
+        }
+
+        return blockId;
+    }
+
+    public override void RemoveBlock(int blockId)
+    {
+        Debug.Assert(World != null, nameof(World) + " != null");
+        
+        Block block = Blocks[blockId];
+        BlockType blockType = World.BlockTypes[block.BlockTypeId];
+        if (blockType.Features.HasFlag(BlockFeatures.Core))
+            HasCoreBlock = false;
+        
+        base.RemoveBlock(blockId);
+    }
+}
+
+public enum ControlMode
+{
+    None,
+    Player,
+    Ai,
+}

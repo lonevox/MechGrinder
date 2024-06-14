@@ -104,7 +104,7 @@ public partial class Cluster : RigidBody2D
 			Block block = _blocks[blockId];
 			block.Health -= 1;
 			if (block.Health <= 0)
-				DisableBlock(blockId);
+				DestroyBlock(blockId);
 		}
 	}
 
@@ -345,6 +345,26 @@ public partial class Cluster : RigidBody2D
 		UpdateCenterOfMass();
 		CallDeferred(MethodName.SetShapeDisabled, blockId, true);
 		SetBlockVisibility(blockId, false);
+	}
+
+	public void DestroyBlock(int blockId)
+	{
+		Debug.Assert(World != null, nameof(World) + " != null");
+		
+		DisableBlock(blockId);
+		
+		// Disable all neighboring weak blocks
+		Block block = _blocks[blockId];
+		for (int i = 0; i < block.Links.Length; i++)
+		{
+			BlockPortPair? portPair = block.Links[i];
+			if (portPair == null)
+				continue;
+			Block connectedBlock = _blocks[portPair.BlockId];
+			BlockType connectedBlockType = World.BlockTypes[connectedBlock.BlockTypeId];
+			if (connectedBlockType.Features.HasFlag(BlockFeatures.Weak))
+				DisableBlock(portPair.BlockId);
+		}
 	}
 
 	private void SetBlockVisibility(int blockId, bool visible)

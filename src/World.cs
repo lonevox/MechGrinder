@@ -34,6 +34,7 @@ public partial class World : Node2D
 		AddBlockType(coreBlockTypeBuilder.Scale(3).Build());
 		Vector2[] trianglePolygon = { Vector2.Zero, new(10, 0), new(10, 10) };
 		BlockType.BlockTypeBuilder triHullBlockTypeBuilder = BlockType.Builder("TriHull", new ConvexPolygonShape2D { Points = trianglePolygon })
+			.Weak()
 			.Density(1)
 			.Durability(1);
 		AddBlockType(triHullBlockTypeBuilder.Build());

@@ -187,7 +187,7 @@ public partial class Cluster : RigidBody2D
 	/// Adds a new Block to the cluster.
 	/// The block's BlockTypeID must be an ID that exists in this Cluster's World.
 	/// </summary>
-	public virtual int AddBlock(Block block, int port, int toBlockId, int toPort)
+	public virtual void AddBlock(Block block, int port, int toBlockId, int toPort)
 	{
 		Debug.Assert(World != null, nameof(World) + " != null");
 		
@@ -225,7 +225,6 @@ public partial class Cluster : RigidBody2D
 			.TranslatedLocal(-blockPortPosition);
 		
 		BlockSetup(block, blockId);
-		return blockId;
 	}
 
 	public virtual void RemoveBlock(int blockId)

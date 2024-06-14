@@ -7,10 +7,10 @@ namespace MechGrinder;
 public partial class Mech : Cluster
 {
     /// <summary>
-    /// The Block ID of the core block on this mech. Only valid if <see cref="HasCoreBlock"/> is true.
+    /// This block ID is reserved for the core block. With this, you can access the core block in <see cref="Cluster.Blocks"/>.
     /// </summary>
-    private int _coreBlock;
-    public bool HasCoreBlock;
+    private const int CoreBlockId = 0;
+
     public ControlMode ControlMode;
     
     public Mech(World world, Block initialBlock) : base(world, initialBlock)
@@ -25,7 +25,7 @@ public partial class Mech : Cluster
     public override void _PhysicsProcess(double delta)
     {
         base._PhysicsProcess(delta);
-        if (HasCoreBlock && ControlMode == ControlMode.Player)
+        if (ControlMode == ControlMode.Player)
         {
             Vector2 inputDirection = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
             ApplyCentralForce(inputDirection * 500);
@@ -65,33 +65,23 @@ public partial class Mech : Cluster
         }
     }
 
-    public override int AddBlock(Block block, int port, int toBlockId, int toPort)
+    public override void AddBlock(Block block, int port, int toBlockId, int toPort)
     {
         Debug.Assert(World != null, nameof(World) + " != null");
         
         BlockType blockType = World.BlockTypes[block.BlockTypeId];
-        if (blockType.Features.HasFlag(BlockFeatures.Core) && HasCoreBlock)
+        if (blockType.Features.HasFlag(BlockFeatures.Core))
             throw new Exception("Can't add block: Core block already exists on this mech.");
         
-        int blockId = base.AddBlock(block, port, toBlockId, toPort);
-        
-        if (blockType.Features.HasFlag(BlockFeatures.Core))
-        {
-            _coreBlock = blockId;
-            HasCoreBlock = true;
-        }
-
-        return blockId;
+        base.AddBlock(block, port, toBlockId, toPort);
     }
 
     public override void RemoveBlock(int blockId)
     {
         Debug.Assert(World != null, nameof(World) + " != null");
-        
-        Block block = Blocks[blockId];
-        BlockType blockType = World.BlockTypes[block.BlockTypeId];
-        if (blockType.Features.HasFlag(BlockFeatures.Core))
-            HasCoreBlock = false;
+
+        if (blockId == CoreBlockId)
+            throw new ArgumentException("Can't remove Core block from Mech.");
         
         base.RemoveBlock(blockId);
     }

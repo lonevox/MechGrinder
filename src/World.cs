@@ -46,15 +46,15 @@ public partial class World : Node2D
 		AddBlockType(triHullBlockTypeBuilder.Scale(3).Build());
 		AddBlockType(BlockType.Builder("Diamond", new ConvexPolygonShape2D { Points = PolygonUtil.RegularConvexPolygon(4, 2.5f) }).Density(1).Durability(1).Build());
 
-		Cluster cluster = new Cluster(this, new Block(0, this));
-		AddCluster(cluster);
-		cluster.ControlMode = ControlMode.Player;
-		cluster.AddBlock(new Block(4, this), 2, 0, 3);
-		cluster.AddBlock(new Block(5, this), 2, 1, 5);
+		Mech mech = new Mech(this, new Block(0, this));
+		AddCluster(mech);
+		mech.ControlMode = ControlMode.Player;
+		mech.AddBlock(new Block(4, this), 2, 0, 3);
+		mech.AddBlock(new Block(5, this), 2, 1, 5);
 
 		Camera2D camera = new Camera2D();
 		camera.Zoom = new Vector2(2, 2);
-		cluster.AddChild(camera);
+		mech.AddChild(camera);
 	}
 
 	public void AddBlockType(BlockType blockType)

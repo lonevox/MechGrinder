@@ -25,12 +25,12 @@ public partial class World : Node2D
 		GD.Print("creating world");
 		RectangleShape2D rectangleShape = new RectangleShape2D();
 		rectangleShape.Size = new Vector2(10, 10);
-		BlockType.BlockTypeBuilder commandBlockTypeBuilder = BlockType.Builder("Command", rectangleShape)
+		BlockType.BlockTypeBuilder coreBlockTypeBuilder = BlockType.Builder("Core", rectangleShape)
 			.Density(5)
 			.Durability(1);
-		AddBlockType(commandBlockTypeBuilder.Build());
-		AddBlockType(commandBlockTypeBuilder.Scale(2).Build());
-		AddBlockType(commandBlockTypeBuilder.Scale(3).Build());
+		AddBlockType(coreBlockTypeBuilder.Build());
+		AddBlockType(coreBlockTypeBuilder.Scale(2).Build());
+		AddBlockType(coreBlockTypeBuilder.Scale(3).Build());
 		Vector2[] trianglePolygon = { Vector2.Zero, new(10, 0), new(10, 10) };
 		BlockType.BlockTypeBuilder triHullBlockTypeBuilder = BlockType.Builder("TriHull", new ConvexPolygonShape2D { Points = trianglePolygon })
 			.Density(1)

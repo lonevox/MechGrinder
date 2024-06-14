@@ -13,14 +13,27 @@ namespace MechGrinder;
 /// <param name="Center"></param>
 /// <param name="PortPositions"></param>
 /// <param name="PortNormals"></param>
+/// <param name="Features"></param>
 /// <param name="Scale"></param>
 /// <param name="Durability"></param>
 /// <param name="Density"></param>
 /// <param name="Mass"></param>
 /// <param name="Area"></param>
 /// <param name="Health"></param>
-/// <param name="Weak">Weak blocks are destroyed when one of their neighbours is destroyed.</param>
-public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] PortPositions, Vector2[] PortNormals, int Scale, float Durability, float Density, float Mass, float Area, Vector2 CenterOfMass, float Health, bool Weak)
+public sealed record BlockType(
+	string Name,
+	Shape2D Shape,
+	Mesh Mesh,
+	Vector2[] PortPositions,
+	Vector2[] PortNormals,
+	BlockFeatures Features,
+	int Scale,
+	float Durability,
+	float Density,
+	float Mass,
+	float Area,
+	Vector2 CenterOfMass,
+	float Health)
 {
 	public static BlockTypeBuilder Builder(string name, Shape2D shape)
 	{
@@ -37,7 +50,7 @@ public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] 
 		private float _mass;
 		private float _health;
 		private Vector2[]? _portPositions;
-		private bool _weak;
+		private BlockFeatures _features;
 		
 		public BlockTypeBuilder(string name, Shape2D shape)
 		{
@@ -91,9 +104,39 @@ public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] 
 			return this;
 		}
 		
-		public BlockTypeBuilder Weak(bool weak = true)
+		/// <summary>
+		/// Sets the <see cref="BlockFeatures"/> for this block. Overwrites any features added with <see cref="AddFeatures"/>
+		/// or any other builder methods that add features such as <see cref="Weak"/>.
+		/// </summary>
+		public BlockTypeBuilder Features(BlockFeatures features)
 		{
-			_weak = weak;
+			_features = features;
+			return this;
+		}
+		
+		public BlockTypeBuilder AddFeatures(BlockFeatures features)
+		{
+			_features |= features;
+			return this;
+		}
+
+		private void SetFeatures(BlockFeatures features, bool enable)
+		{
+			if (enable)
+				_features |= features;
+			else
+				_features &= ~features;
+		}
+		
+		public BlockTypeBuilder Core(bool enable = true)
+		{
+			SetFeatures(BlockFeatures.Core, enable);
+			return this;
+		}
+		
+		public BlockTypeBuilder Weak(bool enable = true)
+		{
+			SetFeatures(BlockFeatures.Weak, enable);
 			return this;
 		}
 
@@ -170,7 +213,7 @@ public sealed record BlockType(string Name, Shape2D Shape, Mesh Mesh, Vector2[] 
 			else
 				throw new Exception("Must specify either durability or health in order to build BlockType.");
 			
-			return new BlockType(_name, shape, mesh, portPositions, portNormals, _scale, durability, density, mass, area, centerOfMass, health, _weak);
+			return new BlockType(_name, shape, mesh, portPositions, portNormals, _features, _scale, durability, density, mass, area, centerOfMass, health);
 		}
 	}
 }
@@ -191,4 +234,16 @@ public class Block
 		Health = blockType.Health;
 		Links = new BlockPortPair[blockType.PortPositions.Length];
 	}
+}
+
+[Flags] public enum BlockFeatures
+{
+	/// <summary>
+	/// This block can be used to control a cluster.
+	/// </summary>
+	Core = 1,
+	/// <summary>
+	/// Weak blocks are destroyed when one of their neighbours is destroyed.
+	/// </summary>
+	Weak = 2,
 }

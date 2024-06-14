@@ -117,7 +117,6 @@ public partial class Cluster : RigidBody2D
 		switch (World.RenderMode)
 		{
 			case RenderMode.MultiMesh:
-
 				foreach (ExpandableMultiMesh multiMesh in _expandableMultiMeshes.Values)
 				{
 					RenderingServer.CanvasItemAddMultimesh(canvasItem, multiMesh.MultiMeshRid);

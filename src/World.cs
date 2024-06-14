@@ -22,6 +22,10 @@ public partial class World : Node2D
 	public override void _Ready()
 	{
 		base._Ready();
+
+		Cluster.DebugVisiblePorts = true;
+		Cluster.DebugCenterOfMass = true;
+		
 		GD.Print("creating world");
 		RectangleShape2D rectangleShape = new RectangleShape2D();
 		rectangleShape.Size = new Vector2(10, 10);

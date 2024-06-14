@@ -24,8 +24,8 @@ public partial class Cluster : RigidBody2D
 	/// </summary>
 	private static readonly Transform2D ZeroTransform = new();
 	
-	private bool _debugVisiblePorts = true;
-	private bool _debugCenterOfMass = true;
+	public static bool DebugVisiblePorts = false;
+	public static bool DebugCenterOfMass = false;
 	
 	protected readonly List<Block> Blocks = new();
 	/// <summary>
@@ -104,7 +104,7 @@ public partial class Cluster : RigidBody2D
 				throw new ArgumentException("Enum has an invalid value.", nameof(World.RenderMode));
 		}
 		
-		if (_debugVisiblePorts)
+		if (DebugVisiblePorts)
 		{
 			for (int i = 0; i < Blocks.Count; i++)
 			{
@@ -131,7 +131,7 @@ public partial class Cluster : RigidBody2D
 			}
 		}
 
-		if (_debugCenterOfMass)
+		if (DebugCenterOfMass)
 			DrawCircle(CenterOfMass, 2, Colors.Black);
 	}
 

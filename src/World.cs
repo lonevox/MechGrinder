@@ -26,6 +26,7 @@ public partial class World : Node2D
 		RectangleShape2D rectangleShape = new RectangleShape2D();
 		rectangleShape.Size = new Vector2(10, 10);
 		BlockType.BlockTypeBuilder coreBlockTypeBuilder = BlockType.Builder("Core", rectangleShape)
+			.Core()
 			.Density(5)
 			.Durability(1);
 		AddBlockType(coreBlockTypeBuilder.Build());
@@ -43,8 +44,8 @@ public partial class World : Node2D
 		Cluster cluster = new Cluster(this, new Block(0, this));
 		AddCluster(cluster);
 		cluster.ControlMode = ControlMode.Player;
-		cluster.AddBlock(new Block(4, this), 2, 0, 2);
-		cluster.AddBlock(new Block(5, this), 3, 1, 1);
+		cluster.AddBlock(new Block(4, this), 2, 0, 3);
+		cluster.AddBlock(new Block(5, this), 2, 1, 5);
 
 		Camera2D camera = new Camera2D();
 		camera.Zoom = new Vector2(2, 2);

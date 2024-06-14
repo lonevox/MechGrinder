@@ -27,10 +27,20 @@ public partial class Cluster : RigidBody2D
 	private bool _debugVisiblePorts = true;
 	private bool _debugCenterOfMass = true;
 
+	/// <summary>
+	/// The Block ID of the core block on this cluster. Only valid if <see cref="HasCoreBlock"/> is true.
+	/// </summary>
+	private int _coreBlock;
+	public bool HasCoreBlock;
 	public ControlMode ControlMode;
-	// public readonly List<int> BlockIds = new List<int>();
-	// public readonly List<Transform2D> BlockTransforms = new List<Transform2D>();
+	
 	private readonly List<Block> _blocks = new();
+	/// <summary>
+	/// These are IDs that were in use by blocks, but those blocks have since been removed with <see cref="RemoveBlock"/>.
+	/// When adding a new block with <see cref="AddBlock"/>, these IDs are preferred to adding a new block ID.
+	/// </summary>
+	private readonly Stack<int> _freeBlockIds = new();
+	
 	/// <summary>
 	/// The World that this Cluster exists in.
 	/// </summary>
@@ -46,9 +56,9 @@ public partial class Cluster : RigidBody2D
 	/// </summary>
 	private readonly uint _shapeOwner;
 	/// <summary>
-	/// All unique block types of blocks that have been added to the cluster.
+	/// Counts for all unique block types of blocks that have been added to the cluster.
 	/// </summary>
-	private readonly HashSet<int> _usedBlockTypes = new();
+	private readonly Dictionary<int, int> _usedBlockTypeCounts = new();
 	/// <summary>
 	/// The cluster's multi meshes, keyed by BlockTypeID.
 	/// </summary>
@@ -72,13 +82,13 @@ public partial class Cluster : RigidBody2D
 	public Cluster(World world, Block initialBlock) : this()
 	{
 		World = world;
-		AddBlock(initialBlock);
+		BlockSetup(initialBlock, 0);
 	}
 
 	public override void _PhysicsProcess(double delta)
 	{
 		base._PhysicsProcess(delta);
-		if (ControlMode == ControlMode.Player)
+		if (HasCoreBlock && ControlMode == ControlMode.Player)
 		{
 			Vector2 inputDirection = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
 			ApplyCentralForce(inputDirection * 500);
@@ -168,31 +178,44 @@ public partial class Cluster : RigidBody2D
 	}
 
 	/// <summary>
-	/// NOTE: The given Block must already be considered valid before calling this.
+	/// Add block with the given block ID.
+	/// NOTE: The given Block must already be considered valid before calling this. The ID must also be available.
 	/// </summary>
 	/// <param name="block"></param>
-	private void AddBlock(Block block)
+	/// <param name="blockId"></param>
+	private void BlockSetup(Block block, int blockId)
 	{
 		Debug.Assert(World != null, nameof(World) + " != null");
 		
 		int blockTypeId = block.BlockTypeId;
-		Debug.Assert(blockTypeId < World.BlockTypes.Count, "Can't add block: The given block's BlockTypeID must be an ID that exists in the cluster's World.");
-		
-		int blockId = _blocks.Count;
-		_blocks.Add(block);
+		BlockType blockType = World.BlockTypes[blockTypeId];
+
+		if (blockId == _blocks.Count)
+		{
+			_blocks.Add(block);
+			ShapeOwnerAddShape(_shapeOwner, blockType.Shape);
+		}
+		else
+		{
+			_blocks[blockId] = block;
+			PhysicsServer2D.BodySetShape(_rid, blockId, blockType.Shape.GetRid());
+		}
+		PhysicsServer2D.BodySetShapeTransform(_rid, blockId, block.Transform);
 		
 		// Add a MultiMesh to the cluster if the BlockType hasn't been seen before
-		BlockType blockType = World.BlockTypes[blockTypeId];
-		if (_usedBlockTypes.Add(blockTypeId))
+		if (_usedBlockTypeCounts.TryAdd(blockTypeId, 0))
 			AddMultiMesh(blockTypeId, blockType.Mesh);
+		_usedBlockTypeCounts[blockTypeId] += 1;
 		// Add the block's mesh
 		ExpandableMultiMesh multiMesh = _expandableMultiMeshes[block.BlockTypeId];
 		multiMesh.InstanceCount += 1;
 		_expandableMultiMeshInstances[multiMesh][blockId] = multiMesh.InstanceCount - 1;
 		
-		// Add the block's shape to the cluster
-		ShapeOwnerAddShape(_shapeOwner, blockType.Shape);
-		PhysicsServer2D.BodySetShapeTransform(_rid, blockId, block.Transform);
+		if (blockType.Features.HasFlag(BlockFeatures.Core))
+		{
+			_coreBlock = blockId;
+			HasCoreBlock = true;
+		}
 		
 		EnableBlock(blockId);
 	}
@@ -205,8 +228,7 @@ public partial class Cluster : RigidBody2D
 	{
 		Debug.Assert(World != null, nameof(World) + " != null");
 		
-		int blockTypeId = block.BlockTypeId;
-		if (blockTypeId >= World.BlockTypes.Count)
+		if (block.BlockTypeId >= World.BlockTypes.Count)
 			throw new ArgumentException("Can't add block: The given block's BlockTypeID must be an ID that exists in the cluster's World.");
 		
 		if (_blocks.Count <= toBlockId)
@@ -219,29 +241,63 @@ public partial class Cluster : RigidBody2D
 		if (toBlock.Links[toPort] != null)
 			throw new Exception("Can't add block: Port '" + toPort + "' of Block with ID '" + toBlockId + "' is in use.");
 		
+		BlockType blockType = World.BlockTypes[block.BlockTypeId];
+		if (blockType.Features.HasFlag(BlockFeatures.Core) && HasCoreBlock)
+			throw new Exception("Can't add block: Core block already exists on this cluster.");
+		
+		// Figure out the block's ID
+		int blockId = _freeBlockIds.Count > 0 ? _freeBlockIds.Pop() : _blocks.Count;
+		
 		// Link blocks
 		block.Links[port] = new BlockPortPair(toBlockId, toPort);
-		toBlock.Links[toPort] = new BlockPortPair(_blocks.Count, port);
+		toBlock.Links[toPort] = new BlockPortPair(blockId, port);
 
 		// Transform block based on ports
-		BlockType blockType = World.BlockTypes[blockTypeId];
 		BlockType toBlockType = World.BlockTypes[toBlock.BlockTypeId];
 		Vector2 blockPortPosition = blockType.PortPositions[port];
 		Vector2 toBlockPortPosition = toBlockType.PortPositions[toPort];
-		Vector2 blockPosition = toBlockPortPosition - blockPortPosition;
 		Vector2 blockPortNormal = blockType.PortNormals[port];
 		Vector2 toBlockPortNormal = toBlockType.PortNormals[toPort];
-		float blockRotation = toBlockPortNormal.AngleTo(blockPortNormal) % Mathf.Pi;
-		// TODO: This could almost certainly be done with less transforms. This is just the first thing that worked.
-		block.Transform = Transform2D.Identity
-			.Translated(blockPosition)
-			.Translated(-toBlockPortPosition)
-			.Rotated(blockRotation)
-			.Translated(toBlockPortPosition)
-			.TranslatedLocal(toBlock.Transform.Origin)
-			.Rotated(toBlock.Transform.Rotation);
+		float blockRotation = -toBlockPortNormal.AngleTo(blockPortNormal) + MathF.PI;
+		block.Transform = toBlock.Transform
+			.TranslatedLocal(toBlockPortPosition)
+			.RotatedLocal(blockRotation)
+			.TranslatedLocal(-blockPortPosition);
 		
-		AddBlock(block);
+		BlockSetup(block, blockId);
+	}
+
+	public void RemoveBlock(int blockId)
+	{
+		Debug.Assert(World != null, nameof(World) + " != null");
+		
+		Block block = _blocks[blockId];
+		int blockTypeId = block.BlockTypeId;
+		BlockType blockType = World.BlockTypes[blockTypeId];
+
+		BlockCleanup(blockId);
+		
+		// Remove MultiMesh if it is no longer in use
+		_usedBlockTypeCounts[blockTypeId] -= 1;
+		if (_usedBlockTypeCounts[blockTypeId] == 0)
+			RemoveMultiMesh(blockTypeId);
+		
+		// Unlink blocks
+		for (int i = 0; i < block.Links.Length; i++)
+		{
+			BlockPortPair? portPair = block.Links[i];
+			if (portPair != null)
+			{
+				Block toBlock = _blocks[portPair.BlockId];
+				toBlock.Links[portPair.Port] = null;
+			}
+			block.Links[i] = null;
+		}
+		
+		if (blockType.Features.HasFlag(BlockFeatures.Core))
+			HasCoreBlock = false;
+		
+		_freeBlockIds.Push(blockId);
 	}
 
 	private void AddMultiMesh(int blockTypeId, Mesh mesh)
@@ -250,6 +306,13 @@ public partial class Cluster : RigidBody2D
 		multiMesh.SetMesh(mesh);
 		_expandableMultiMeshes.Add(blockTypeId, multiMesh);
 		_expandableMultiMeshInstances[multiMesh] = new Dictionary<int, int>();
+	}
+
+	private void RemoveMultiMesh(int blockTypeId)
+	{
+		ExpandableMultiMesh multiMesh = _expandableMultiMeshes[blockTypeId];
+		_expandableMultiMeshInstances.Remove(multiMesh);
+		_expandableMultiMeshes.Remove(blockTypeId);
 	}
 	
 	public void EnableBlock(int blockId)
@@ -260,15 +323,11 @@ public partial class Cluster : RigidBody2D
 		block.Disabled = false;
 		
 		// Enable collision shape
-		PhysicsServer2D.BodySetShapeDisabled(_rid, blockId, false);
+		CallDeferred(MethodName.SetShapeDisabled, blockId, false);
 		
 		UpdateCenterOfMass();
-		
-		// Show multi mesh instance
-		ExpandableMultiMesh multiMesh = _expandableMultiMeshes[block.BlockTypeId];
-		int multiMeshInstance = _expandableMultiMeshInstances[multiMesh][blockId];
-		RenderingServer.MultimeshInstanceSetTransform2D(multiMesh.MultiMeshRid, multiMeshInstance, block.Transform);
-		QueueRedraw();
+
+		SetBlockVisibility(blockId, true);
 	}
 
 	public void DisableBlock(int blockId)
@@ -276,21 +335,31 @@ public partial class Cluster : RigidBody2D
 		Block block = _blocks[blockId];
 		if (block.Disabled)
 			return;
+		
+		BlockCleanup(blockId);
+	}
+
+	private void BlockCleanup(int blockId)
+	{
+		Block block = _blocks[blockId];
 		block.Disabled = true;
-		
-		// Disable collision shape
-		CallDeferred(MethodName.ShapeSetDisabled, blockId, true);
-		
 		UpdateCenterOfMass();
+		CallDeferred(MethodName.SetShapeDisabled, blockId, true);
+		SetBlockVisibility(blockId, false);
+	}
+
+	private void SetBlockVisibility(int blockId, bool visible)
+	{
 		
-		// Hide multi mesh instance
+		Block block = _blocks[blockId];
 		ExpandableMultiMesh multiMesh = _expandableMultiMeshes[block.BlockTypeId];
 		int multiMeshInstance = _expandableMultiMeshInstances[multiMesh][blockId];
-		RenderingServer.MultimeshInstanceSetTransform2D(multiMesh.MultiMeshRid, multiMeshInstance, ZeroTransform);
+		RenderingServer.MultimeshInstanceSetTransform2D(multiMesh.MultiMeshRid, multiMeshInstance,
+			visible ? block.Transform : ZeroTransform);
 		QueueRedraw();
 	}
 
-	private void ShapeSetDisabled(int shapeIdx, bool disabled)
+	private void SetShapeDisabled(int shapeIdx, bool disabled)
 	{
 		PhysicsServer2D.BodySetShapeDisabled(_rid, shapeIdx, disabled);
 	}

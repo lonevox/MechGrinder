@@ -18,12 +18,12 @@ metadata/_edit_group_ = true
 [node name="CollisionShape2D" type="CollisionShape2D" parent="RigidBody2D"]
 shape = SubResource("RectangleShape2D_1n6s7")
 
-[node name="MechEditor" parent="." instance=ExtResource("2_vicu2")]
+[node name="GUI" type="CanvasLayer" parent="."]
+
+[node name="MechEditor" parent="GUI" instance=ExtResource("2_vicu2")]
+unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(1152, 648)
-offset_left = -576.0
-offset_top = -324.0
-offset_right = 576.0
-offset_bottom = 324.0
 
 [node name="Camera2D" type="Camera2D" parent="."]
 zoom = Vector2(2, 2)

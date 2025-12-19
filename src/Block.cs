@@ -7,34 +7,57 @@ namespace MechGrinder;
 /// <summary>
 /// 
 /// </summary>
-/// <param name="Name"></param>
-/// <param name="Shape"></param>
-/// <param name="Mesh"></param>
-/// <param name="Center"></param>
-/// <param name="PortPositions"></param>
-/// <param name="PortNormals"></param>
-/// <param name="Features"></param>
-/// <param name="Scale"></param>
-/// <param name="Durability"></param>
-/// <param name="Density"></param>
-/// <param name="Mass"></param>
-/// <param name="Area"></param>
-/// <param name="Health"></param>
-public sealed record BlockType(
-	string Name,
-	Shape2D Shape,
-	Mesh Mesh,
-	Vector2[] PortPositions,
-	Vector2[] PortNormals,
-	BlockFeatures Features,
-	int Scale,
-	float Durability,
-	float Density,
-	float Mass,
-	float Area,
-	Vector2 CenterOfMass,
-	float Health)
+public partial class BlockType : Resource
 {
+	private static readonly Shape2D DefaultShape = new RectangleShape2D();
+	
+	public string Name = "";
+	public Shape2D Shape = (Shape2D) DefaultShape.Duplicate();
+	public Mesh Mesh = ShapeUtil.Shape2DToMesh(DefaultShape);
+	public Vector2[] PortPositions = Array.Empty<Vector2>();
+	public Vector2[] PortNormals = Array.Empty<Vector2>();
+	public BlockFeatures Features;
+	public int Scale;
+	public float Durability;
+	public float Density;
+	public float Mass;
+	public float Area;
+	public Vector2 CenterOfMass;
+	public float Health;
+	
+	public BlockType()
+	{
+	}
+
+	private BlockType(string name,
+		Shape2D shape,
+		Mesh mesh,
+		Vector2[] portPositions,
+		Vector2[] portNormals,
+		BlockFeatures features,
+		int scale,
+		float durability,
+		float density,
+		float mass,
+		float area,
+		Vector2 centerOfMass,
+		float health)
+	{
+		Name = name;
+		Shape = shape;
+		Mesh = mesh;
+		PortPositions = portPositions;
+		PortNormals = portNormals;
+		Features = features;
+		Scale = scale;
+		Durability = durability;
+		Density = density;
+		Mass = mass;
+		Area = area;
+		CenterOfMass = centerOfMass;
+		Health = health;
+	}
+	
 	public static BlockTypeBuilder Builder(string name, Shape2D shape)
 	{
 		return new BlockTypeBuilder(name, shape);

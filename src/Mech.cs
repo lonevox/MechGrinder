@@ -12,6 +12,9 @@ public partial class Mech : Cluster
     private const int CoreBlockId = 0;
 
     public ControlMode ControlMode;
+
+    protected Vector2 InputDirection;
+    protected Vector2 TargetDirection;
     
     public Mech(World world, Block initialBlock) : base(world, initialBlock)
     {
@@ -20,16 +23,6 @@ public partial class Mech : Cluster
         BlockType initialBlockType = World.BlockTypes[initialBlock.BlockTypeId];
         if (!initialBlockType.Features.HasFlag(BlockFeatures.Core))
             throw new Exception("Can't make Mech: Initial block must have Core feature.");
-    }
-    
-    public override void _PhysicsProcess(double delta)
-    {
-        base._PhysicsProcess(delta);
-        if (ControlMode == ControlMode.Player)
-        {
-            Vector2 inputDirection = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
-            ApplyCentralForce(inputDirection * 500);
-        }
     }
     
     public override void _IntegrateForces(PhysicsDirectBodyState2D state)
@@ -44,7 +37,18 @@ public partial class Mech : Cluster
                 DestroyBlock(blockId);
         }
     }
-    
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        base._UnhandledInput(@event);
+        if (ControlMode == ControlMode.Player)
+        {
+            InputDirection = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
+            if (@event is InputEventMouseMotion)
+                TargetDirection = Position.DirectionTo(GetGlobalMousePosition());
+        }
+    }
+
     public void DestroyBlock(int blockId)
     {
         Debug.Assert(World != null, nameof(World) + " != null");

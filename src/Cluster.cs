@@ -119,20 +119,20 @@ public partial class Cluster : RigidBody2D
 					
 					// Draw normal
 					Vector2 portNormal = blockType.PortNormals[j];
-					Vector2 portNormalEndPosition = portTransform.TranslatedLocal(portNormal * 5).Origin;
+					Vector2 portNormalEndPosition = portTransform.TranslatedLocal(portNormal / 2f).Origin;
 					DrawLine(portPosition, portNormalEndPosition, Colors.Aqua);
 					
 					// Draw port position
 					if (block.Links[j] == null)
-						DrawCircle(portPosition, 1.5f, Colors.Green);
+						DrawCircle(portPosition, 0.25f, Colors.Green);
 					else
-						DrawCircle(portPosition, 1.5f, Colors.Red);
+						DrawCircle(portPosition, 0.25f, Colors.Red);
 				}
 			}
 		}
 
 		if (DebugCenterOfMass)
-			DrawCircle(CenterOfMass, 2, Colors.Black);
+			DrawCircle(CenterOfMass, 0.3f, Colors.Black);
 	}
 
 	public override void _Notification(int what)
@@ -338,7 +338,8 @@ public partial class Cluster : RigidBody2D
 		}
 		if (centerOfMass != Vector2.Zero)
 			centerOfMass /= totalMass;
-		
+
+		Mass = totalMass;
 		CenterOfMass = centerOfMass;
 	}
 }

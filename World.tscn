@@ -1,29 +1,29 @@
-[gd_scene load_steps=4 format=3 uid="uid://c7ucfv01436to"]
+[gd_scene format=3 uid="uid://c7ucfv01436to"]
 
-[ext_resource type="Script" path="res://src/World.cs" id="1_26he1"]
+[ext_resource type="Script" uid="uid://cct58pq1jvfgs" path="res://src/World.cs" id="1_26he1"]
 [ext_resource type="PackedScene" uid="uid://b4vwt4ffsxy76" path="res://MechEditor.tscn" id="2_vicu2"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1n6s7"]
-size = Vector2(120, 20)
+size = Vector2(20, 4)
 
-[node name="World" type="Node2D"]
+[node name="World" type="Node2D" unique_id=482609331]
 script = ExtResource("1_26he1")
 
-[node name="RigidBody2D" type="RigidBody2D" parent="."]
-position = Vector2(145, -123)
+[node name="RigidBody2D" type="RigidBody2D" parent="." unique_id=782425506]
+position = Vector2(19, -16)
 mass = 1000.0
 gravity_scale = 0.0
 metadata/_edit_group_ = true
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="RigidBody2D"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RigidBody2D" unique_id=379415339]
 shape = SubResource("RectangleShape2D_1n6s7")
 
-[node name="GUI" type="CanvasLayer" parent="."]
+[node name="GUI" type="CanvasLayer" parent="." unique_id=571490427]
 
-[node name="MechEditor" parent="GUI" instance=ExtResource("2_vicu2")]
+[node name="MechEditor" parent="GUI" unique_id=1638910180 instance=ExtResource("2_vicu2")]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(1152, 648)
 
-[node name="Camera2D" type="Camera2D" parent="."]
-zoom = Vector2(2, 2)
+[node name="Camera2D" type="Camera2D" parent="." unique_id=98682062]
+zoom = Vector2(16, 16)

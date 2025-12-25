@@ -37,7 +37,7 @@ public partial class World : Node2D
 		
 		GD.Print("creating world");
 		RectangleShape2D rectangleShape = new RectangleShape2D();
-		rectangleShape.Size = new Vector2(10, 10);
+		rectangleShape.Size = new Vector2(1, 1);
 		BlockType.BlockTypeBuilder coreBlockTypeBuilder = BlockType.Builder("Core", rectangleShape)
 			.Core()
 			.Density(5)
@@ -45,7 +45,7 @@ public partial class World : Node2D
 		AddBlockType(coreBlockTypeBuilder.Build());
 		AddBlockType(coreBlockTypeBuilder.Scale(2).Build());
 		AddBlockType(coreBlockTypeBuilder.Scale(3).Build());
-		Vector2[] trianglePolygon = { Vector2.Zero, new(10, 0), new(10, 10) };
+		Vector2[] trianglePolygon = { Vector2.Zero, new(1, 0), new(1, 1) };
 		BlockType.BlockTypeBuilder triHullBlockTypeBuilder = BlockType.Builder("TriHull", new ConvexPolygonShape2D { Points = trianglePolygon })
 			.Weak()
 			.Density(1)
@@ -58,11 +58,11 @@ public partial class World : Node2D
 		Mech mech = new Walker(this, new Block(0, this));
 		AddCluster(mech);
 		mech.ControlMode = ControlMode.Player;
-		// mech.AddBlock(new Block(4, this), 2, 0, 3);
-		// mech.AddBlock(new Block(5, this), 2, 1, 5);
+		mech.AddBlock(new Block(4, this), 2, 0, 3);
+		mech.AddBlock(new Block(5, this), 2, 1, 5);
 
 		Camera2D camera = new Camera2D();
-		camera.Zoom = new Vector2(2, 2);
+		camera.Zoom = new Vector2(16, 16);
 		mech.AddChild(camera);
 	}
 

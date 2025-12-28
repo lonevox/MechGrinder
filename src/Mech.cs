@@ -16,12 +16,12 @@ public partial class Mech : Cluster
     protected Vector2 InputDirection;
     protected Vector2 TargetDirection;
     
-    public Mech(World world, Block initialBlock) : base(world, initialBlock)
+    public Mech(World world, Block coreBlock) : base(world, coreBlock)
     {
         Debug.Assert(World != null, nameof(World) + " != null");
         
-        BlockType initialBlockType = World.BlockTypes[initialBlock.BlockTypeId];
-        if (!initialBlockType.Features.HasFlag(BlockFeatures.Core))
+        BlockType blockType = World.BlockTypes[coreBlock.BlockTypeId];
+        if (!blockType.Features.HasFlag(BlockFeatures.Core))
             throw new Exception("Can't make Mech: Initial block must have Core feature.");
     }
     
